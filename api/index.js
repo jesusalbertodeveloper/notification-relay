@@ -132,3 +132,4 @@ app.post('/api/logs', async (req, res) => {
         res.status(500).json({ error: 'Failed to retrieve logs' });
     }
 });
+module.exports = app;
