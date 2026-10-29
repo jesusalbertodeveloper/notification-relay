@@ -24,31 +24,30 @@ const pool = new Pool({
     prepareThreshold: 0
 });
 
-// Ensure table exists on startup
+// Ensure table and unique index exist on startup
 pool.query(`
     CREATE TABLE IF NOT EXISTS subscriptions (
         id SERIAL PRIMARY KEY,
         data JSONB NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-`).catch(err => console.error("DB init error:", err));
+    CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_endpoint_idx 
+    ON subscriptions ((data->>'endpoint'));
+`).catch(err => console.error("DB init error:", err));;
 
-// 1. Subscribe endpoint (Saves new device without deleting old ones)
 app.post('/api/subscribe', async (req, res) => {
     try {
         const subscription = req.body;
         
-        // Optional: Avoid duplicate entries if the same browser re-subscribes
-        await pool.query(
-            'INSERT INTO subscriptions (data) VALUES ($1) WHERE NOT EXISTS (SELECT 1 FROM subscriptions WHERE data->>\'endpoint\' = $2)',
-            [subscription, subscription.endpoint]
-        );
-        
-        // Simpler version if endpoint deduplication isn't strictly needed yet:
-        // await pool.query('INSERT INTO subscriptions (data) VALUES ($1)', [subscription]);
+        await pool.query(`
+            INSERT INTO subscriptions (data) 
+            VALUES ($1) 
+            ON CONFLICT ((data->>'endpoint')) 
+            DO UPDATE SET data = EXCLUDED.data, created_at = CURRENT_TIMESTAMP
+        `, [subscription]);
 
         res.status(201).json({});
-        console.log("New device registered successfully in database!");
+        console.log("Device successfully registered or updated in database!");
     } catch (err) {
         console.error('Save error:', err);
         res.status(500).json({ error: 'Failed to save subscription' });
