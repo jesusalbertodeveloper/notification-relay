@@ -35,6 +35,24 @@ pool.query(`
     ON subscriptions ((data->>'endpoint'));
 `).catch(err => console.error("DB init error:", err));;
 
+// Ensure tables and indexes exist on startup
+pool.query(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        id SERIAL PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_endpoint_idx 
+    ON subscriptions ((data->>'endpoint'));
+
+    CREATE TABLE IF NOT EXISTS notification_logs (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+`).catch(err => console.error("DB init error:", err));
+
 app.post('/api/subscribe', async (req, res) => {
     try {
         const subscription = req.body;
@@ -55,6 +73,7 @@ app.post('/api/subscribe', async (req, res) => {
 });
 
 // 2. Send notification endpoint (Broadcasts to ALL devices in Supabase)
+// 1. Send notification endpoint (Broadcasts and logs to Supabase)
 app.post('/api/send-notification', async (req, res) => {
     const { title, message, secretKey } = req.body;
 
@@ -71,28 +90,45 @@ app.post('/api/send-notification', async (req, res) => {
 
         const payload = JSON.stringify({ title, body: message });
         
-        // Map all push requests into parallel promises
         const pushPromises = result.rows.map(async (row) => {
             try {
                 await webpush.sendNotification(row.data, payload);
             } catch (error) {
-                // If a subscription has expired or the user revoked permissions (404/410), clean it up
                 if (error.statusCode === 404 || error.statusCode === 410) {
                     console.log(`Removing expired subscription ID: ${row.id}`);
                     await pool.query('DELETE FROM subscriptions WHERE id = $1', [row.id]);
-                } else {
-                    console.error(`Failed to send to subscription ${row.id}:`, error);
                 }
             }
         });
 
         await Promise.all(pushPromises);
 
-        res.status(200).json({ status: `Notification broadcasted to ${result.rows.length} device(s) successfully!` });
+        // SAVE TO NOTIFICATION LOGS
+        await pool.query(
+            'INSERT INTO notification_logs (title, message) VALUES ($1, $2)',
+            [title, message]
+        );
+
+        res.status(200).json({ status: `Notification broadcasted to ${result.rows.length} device(s) and logged successfully!` });
     } catch (error) {
         console.error('Error broadcasting push:', error);
         res.status(500).json({ error: 'Failed to broadcast push notification' });
     }
 });
-// EXPORT FOR VERCEL (No app.listen!)
-module.exports = app;
+
+// 2. Fetch Logs Endpoint (Protected by Secret Key)
+app.post('/api/logs', async (req, res) => {
+    const { secretKey } = req.body;
+
+    if (secretKey !== process.env.SECRET_KEY && secretKey !== 'YOUR_SUPER_SECRET_KEY') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const logs = await pool.query('SELECT * FROM notification_logs ORDER BY sent_at DESC LIMIT 50');
+        res.status(200).json(logs.rows);
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+        res.status(500).json({ error: 'Failed to retrieve logs' });
+    }
+});
