@@ -20,7 +20,7 @@
                 applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
             });
 
-            await fetch('/subscribe', {
+            await fetch('/api/subscribe', {
                 method: 'POST',
                 body: JSON.stringify(subscription),
                 headers: { 'Content-Type': 'application/json' }
