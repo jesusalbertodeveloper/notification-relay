@@ -7,8 +7,8 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Generate these once locally using `npx web-push generate-vapid-keys` and paste them here:
-const publicVapidKey = 'YOUR_PUBLIC_VAPID_KEY';
-const privateVapidKey = 'YOUR_PRIVATE_VAPID_KEY';
+const publicVapidKey = process.env.VAPID_PUBLIC_KEY;
+const privateVapidKey = process.env.VAPID_PRIVATE_KEY;
 
 webpush.setVapidDetails(
     'mailto:your-email@example.com',
