@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Notification Logs</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f7f9fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .admin-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 600px;
+            padding: 30px;
+            border: 1px solid #e1e4e8;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        h3 {
+            margin-top: 0;
+            color: #111;
+        }
+        #auth-section {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="password"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 16px;
+            background-color: #0070f3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        button:hover {
+            background-color: #0051a2;
+        }
+        #logs-container {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .log-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .log-item strong {
+            color: #222;
+        }
+    </style>
+</head>
+<body>
+
+<div class="admin-card">
+    <h3>Admin Notification Logs</h3>
+    <div id="auth-section">
+        <input type="password" id="admin-pass" placeholder="Enter Secret Password" />
+        <button onclick="loadLogs()">View Logs</button>
+    </div>
+    
+    <div id="logs-container">
+        <!-- Logs will populate here -->
+    </div>
+</div>
+
+<script>
+async function loadLogs() {
+    const secretKey = document.getElementById('admin-pass').value;
+    const container = document.getElementById('logs-container');
+    container.innerHTML = "<p style='color: #666;'>Loading logs...</p>";
+
+    try {
+        const response = await fetch('/api/logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secretKey })
+        });
+
+        if (!response.ok) {
+            container.innerHTML = "<p style='color: red;'>Unauthorized or Failed to load logs.</p>";
+            return;
+        }
+
+        const logs = await response.json();
+        if (logs.length === 0) {
+            container.innerHTML = "<p>No notifications sent yet.</p>";
+            return;
+        }
+
+        container.innerHTML = logs.map(log => `
+            <div class="log-item">
+                <strong>${escapeHtml(log.title)}</strong><br>
+                <span>${escapeHtml(log.message)}</span><br>
+                <small style="color: gray;">Sent at: ${new Date(log.sent_at).toLocaleString()}</small>
+            </div>
+        `).join('');
+    } catch (err) {
+        container.innerHTML = "<p style='color: red;'>Error connecting to server.</p>";
+    }
+}
+
+// Basic helper to prevent HTML injection in logs
+function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+</script>
+
+</body>
+</html>
