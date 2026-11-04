@@ -1,5 +1,4 @@
 import { Pool } from 'pg';
-import { NextResponse } from 'next/server';
 
 // Initialize pool using your environment variable connection string
 const pool = new Pool({
@@ -16,54 +15,51 @@ async function ensureTableExists() {
   `);
 }
 
-// GET: Query all words
-export async function GET() {
+export default async function handler(req, res) {
   try {
     await ensureTableExists();
-    const result = await pool.query('SELECT word FROM somesetting45');
-    const words = result.rows.map(row => row.word);
-    return NextResponse.json({ success: true, somesetting45: words });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-}
 
-// POST: Set / Add a word
-export async function POST(request) {
-  try {
-    await ensureTableExists();
-    const { word } = await request.json();
-    if (!word) {
-      return NextResponse.json({ success: false, error: 'Word is required' }, { status: 400 });
+    // GET: Query all words
+    if (req.method === 'GET') {
+      const result = await pool.query('SELECT word FROM somesetting45');
+      const words = result.rows.map(row => row.word);
+      return res.status(200).json({ success: true, somesetting45: words });
     }
-    const cleanWord = word.trim().toLowerCase();
-    
-    // Insert, ignoring duplicates if it already exists
-    await pool.query(
-      'INSERT INTO somesetting45 (word) VALUES ($1) ON CONFLICT (word) DO NOTHING', 
-      [cleanWord]
-    );
-    
-    return NextResponse.json({ success: true, message: `Added '${cleanWord}'` });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-}
 
-// DELETE: Unset / Remove a word
-export async function DELETE(request) {
-  try {
-    await ensureTableExists();
-    const { word } = await request.json();
-    if (!word) {
-      return NextResponse.json({ success: false, error: 'Word is required' }, { status: 400 });
+    // POST: Set / Add a word
+    if (req.method === 'POST') {
+      const { word } = req.body;
+      if (!word) {
+        return res.status(400).json({ success: false, error: 'Word is required' });
+      }
+      const cleanWord = word.trim().toLowerCase();
+      
+      await pool.query(
+        'INSERT INTO somesetting45 (word) VALUES ($1) ON CONFLICT (word) DO NOTHING', 
+        [cleanWord]
+      );
+      
+      return res.status(200).json({ success: true, message: `Added '${cleanWord}'` });
     }
-    const cleanWord = word.trim().toLowerCase();
-    
-    await pool.query('DELETE FROM somesetting45 WHERE word = $1', [cleanWord]);
-    
-    return NextResponse.json({ success: true, message: `Removed '${cleanWord}'` });
+
+    // DELETE: Unset / Remove a word
+    if (req.method === 'DELETE') {
+      const { word } = req.body;
+      if (!word) {
+        return res.status(400).json({ success: false, error: 'Word is required' });
+      }
+      const cleanWord = word.trim().toLowerCase();
+      
+      await pool.query('DELETE FROM somesetting45 WHERE word = $1', [cleanWord]);
+      
+      return res.status(200).json({ success: true, message: `Removed '${cleanWord}'` });
+    }
+
+    // Handle unsupported methods
+    res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
+    return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed` });
+
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return res.status(500).json({ success: false, error: error.message });
   }
 }
