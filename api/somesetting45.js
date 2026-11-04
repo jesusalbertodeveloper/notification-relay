@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 
 // Initialize pool using your environment variable connection string
 const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }, // Required for most cloud Postgres providers
 });
 
