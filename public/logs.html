@@ -92,7 +92,7 @@ async function loadLogs() {
         const response = await fetch('/api/logs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ "null" })
+            body: JSON.stringify({"nothing"})
         });
 
         if (!response.ok) {
