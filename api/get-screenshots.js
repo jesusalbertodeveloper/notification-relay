@@ -12,9 +12,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch the latest 50 screenshots ordered by newest first
+    // Fetch the latest 1000 screenshots ordered by newest first
     const result = await pool.query(
-      'SELECT id, image_data, created_at FROM screenshots ORDER BY created_at DESC LIMIT 50'
+      'SELECT id, image_data, created_at FROM screenshots ORDER BY created_at DESC LIMIT 1000'
     );
 
     return res.status(200).json({ success: true, screenshots: result.rows });
