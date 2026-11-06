@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <body onload="loadLogs()">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Notification Logs</title>
@@ -13,7 +12,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
         }
         .admin-card {
@@ -29,17 +28,6 @@
             margin-top: 0;
             color: #111;
         }
-        #auth-section {
-            display: flex;
-            gap: 10px;
-        }
-        input[type="password"] {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 14px;
-        }
         button {
             padding: 10px 16px;
             background-color: #0070f3;
@@ -48,12 +36,13 @@
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
+            margin-bottom: 15px;
         }
         button:hover {
             background-color: #0051a2;
         }
         #logs-container {
-            margin-top: 20px;
+            margin-top: 10px;
             max-height: 400px;
             overflow-y: auto;
             border-top: 1px solid #eee;
@@ -68,14 +57,11 @@
         }
     </style>
 </head>
-<body>
+<body onload="loadLogs()">
 
 <div class="admin-card">
     <h3>Admin Notification Logs</h3>
-    <div id="auth-section">
-        <input type="password" id="admin-pass" placeholder="Enter Secret Password" />
-        <button onclick="loadLogs()">View Logs</button>
-    </div>
+    <button onclick="loadLogs()">Refresh Logs</button>
     
     <div id="logs-container">
         <!-- Logs will populate here -->
@@ -84,7 +70,6 @@
 
 <script>
 async function loadLogs() {
-    const secretKey = document.getElementById('admin-pass').value;
     const container = document.getElementById('logs-container');
     container.innerHTML = "<p style='color: #666;'>Loading logs...</p>";
 
@@ -92,25 +77,25 @@ async function loadLogs() {
         const response = await fetch('/api/logs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({"nothing"})
+            body: JSON.stringify({})
         });
 
         if (!response.ok) {
-            container.innerHTML = "<p style='color: red;'>Unauthorized or Failed to load logs.</p>";
+            container.innerHTML = "<p style='color: red;'>Failed to load logs.</p>";
             return;
         }
 
         const logs = await response.json();
-        if (logs.length === 0) {
+        if (!logs || logs.length === 0) {
             container.innerHTML = "<p>No notifications sent yet.</p>";
             return;
         }
 
         container.innerHTML = logs.map(log => `
             <div class="log-item">
-                <strong>${escapeHtml(log.title)}</strong><br>
-                <span>${escapeHtml(log.message)}</span><br>
-                <small style="color: gray;">Sent at: ${new Date(log.sent_at).toLocaleString()}</small>
+                <strong>${escapeHtml(log.title || 'Untitled')}</strong><br>
+                <span>${escapeHtml(log.message || '')}</span><br>
+                <small style="color: gray;">Sent at: ${log.sent_at ? new Date(log.sent_at).toLocaleString() : 'N/A'}</small>
             </div>
         `).join('');
     } catch (err) {
@@ -120,7 +105,8 @@ async function loadLogs() {
 
 // Basic helper to prevent HTML injection in logs
 function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    if (!str) return '';
+    return str.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 </script>
 
