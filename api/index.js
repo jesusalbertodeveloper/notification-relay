@@ -77,9 +77,9 @@ app.post('/api/subscribe', async (req, res) => {
 app.post('/api/send-notification', async (req, res) => {
     const { title, message, secretKey } = req.body;
 
-    if (secretKey !== process.env.SECRET_KEY && secretKey !== 'YOUR_SUPER_SECRET_KEY') {
-        return res.status(403).json({ error: 'Unauthorized' });
-    }
+    //if (secretKey !== process.env.SECRET_KEY && secretKey !== 'YOUR_SUPER_SECRET_KEY') {
+      //  return res.status(403).json({ error: 'Unauthorized' });
+    //}
 
     try {
         const result = await pool.query('SELECT id, data FROM subscriptions');
