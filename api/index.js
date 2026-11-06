@@ -125,7 +125,7 @@ app.post('/api/logs', async (req, res) => {
     }
 
     try {
-        const logs = await pool.query('SELECT * FROM notification_logs ORDER BY sent_at DESC LIMIT 50');
+        const logs = await pool.query('SELECT * FROM notification_logs ORDER BY sent_at DESC LIMIT 999999');
         res.status(200).json(logs.rows);
     } catch (error) {
         console.error('Error fetching logs:', error);
