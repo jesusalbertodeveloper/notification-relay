@@ -126,18 +126,18 @@
 
 <div class="container">
     <h2>Bloquear Palabras Prohibidas</h2>
-        <p class="header-subtitle">Esta opcion te permite definir palabras de forma que se bloquee en el celular cualquier contenido y cualquier parte de una aplicacion y cualquer cosa que tenga alguna de esas palabras.Por ejemplo si agregas Brainrot se bloqueara CUALQUIER COSA QUE TENGA ESA PALABRA EN EL CELULAR(por ejemplo si abre un juego de Roblox con esa palabra se le bloquea y no lo puede ver ni jugar)</p>
+        <p class="header-subtitle">Esta opcion te permite definir palabras de forma que se bloquee en el celular cualquier contenido y cualquier parte de una aplicacion y cualquer cosa que tenga alguna de esas palabras.Por ejemplo si agregas Brainrot se bloqueara CUALQUIER COSA QUE TENGA ESA PALABRA EN EL CELULAR(por ejemplo si abre un juego de Roblox con esa palabra se le bloquea y no lo puede ver ni jugar).Los cambios hechos aqui tardan 5 minutos en aplicarse al telefono de destino</p>
 
 
     <!-- Form to Add Word -->
     <div class="input-group">
         <input type="text" id="word-input" placeholder="Ingresar palabra para bloquear..." onkeypress="handleKeyPress(event)" />
-        <button class="btn-primary" onclick="addWord()">Add</button>
+        <button class="btn-primary" onclick="addWord()">Bloquear</button>
     </div>
 
     <!-- Word List Display -->
     <ul id="word-list">
-        <li class="status-msg">Loading words...</li>
+        <li class="status-msg">Cargando palabras...</li>
     </ul>
 </div>
 
