@@ -53,12 +53,12 @@ export default async function handler(req, res) {
         
         // --- HANDLE GET REQUEST (Read All Logs with Password Authentication) ---
         else if (req.method === 'GET') {
-            const password = req.headers['x-api-password'] || req.query.password;
-            const requiredPassword = process.env.VAR33;
+           // const password = req.headers['x-api-password'] || req.query.password;
+            //const requiredPassword = process.env.VAR33;
 
-            if (!requiredPassword || password !== requiredPassword) {
-                return res.status(401).json({ error: 'Unauthorized: Invalid or missing password' });
-            }
+            //if (!requiredPassword || password !== requiredPassword) {
+              //  return res.status(401).json({ error: 'Unauthorized: Invalid or missing password' });
+            //}
 
             // Fetch all stored entries ordered by newest first
             const selectQuery = `
