@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const result = await pool.query('SELECT word FROM somesetting46');
       const words = result.rows.map(row => row.word);
-      return res.status(200).json({ success: true, somesetting45: words });
+      return res.status(200).json({ success: true, somesetting46: words });
     }
 
     // POST: Set / Add a word
