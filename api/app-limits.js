@@ -27,22 +27,16 @@ export default async function handler(req, res) {
             try { body = JSON.parse(body); } catch (e) { body = {}; }
         }
 
-        if (req.method === 'GET') {
-            const { packageName } = req.query;
-            if (packageName) {
-                const result = await pool.query(
-                    'SELECT package_name, limit_millis FROM app_time_limits WHERE package_name = $1', 
-                    [packageName]
-                );
-                if (result.rows.length === 0) {
-                    return res.status(200).json({ success: true, package_name: packageName, limit_millis: 0 });
-                }
-                return res.status(200).json({ success: true, entry: result.rows[0] });
-            }
-
-            const result = await pool.query('SELECT package_name, limit_millis FROM app_time_limits ORDER BY package_name ASC');
-            return res.status(200).json({ success: true, apps: result.rows });
-        }
+        // Dentro de tu handler GET en Vercel:
+if (req.method === 'GET') {
+    // Esto asegura que devuelva todos los paquetes conocidos y su límite (o null si no tienen)
+    const result = await pool.query(`
+        SELECT package_name, limit_millis 
+        FROM app_time_limits 
+        ORDER BY package_name ASC
+    `);
+    return res.status(200).json({ success: true, apps: result.rows });
+}
 
         if (req.method === 'POST') {
             const { packages, packageName, limitMillis } = body || {};
