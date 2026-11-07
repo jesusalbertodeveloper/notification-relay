@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Límites de Tiempo por Aplicación</title>
+    <style>
+        :root {
+            --bg-color: #f7f9fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e1e4e8;
+            --primary-color: #0070f3;
+            --success-color: #28a745;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 550px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 6px;
+            font-size: 1.25rem;
+            color: #111;
+            text-align: center;
+        }
+
+        .header-subtitle {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        #app-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 500px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .app-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px 4px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 8px;
+        }
+
+        @media (min-width: 450px) {
+            .app-item {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+        }
+
+        .app-info {
+            word-break: break-all;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .limit-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        button.btn-save {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        button.btn-save:active {
+            background-color: #0051a2;
+        }
+
+        .status-msg {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body onload="fetchApps()">
+
+<div class="container">
+    <h2>Límites de Tiempo</h2>
+    <p class="header-subtitle">Establece el límite diario de uso en minutos para cada aplicación (0 = sin límite).</p>
+
+    <!-- Lista de Aplicaciones -->
+    <ul id="app-list">
+        <li class="status-msg">Cargando aplicaciones...</li>
+    </ul>
+</div>
+
+<script>
+    const API_ENDPOINT = '/api/app-limits';
+
+    async function fetchApps() {
+        const listContainer = document.getElementById('app-list');
+        try {
+            const response = await fetch(API_ENDPOINT);
+            const data = await response.json();
+
+            if (!data.success || !data.apps) {
+                listContainer.innerHTML = '<li class="status-msg" style="color: red;">Error al cargar las aplicaciones.</li>';
+                return;
+            }
+
+            const apps = data.apps;
+            if (apps.length === 0) {
+                listContainer.innerHTML = '<li class="status-msg">No hay aplicaciones sincronizadas todavía. Abre la app en tu teléfono para sincronizar.</li>';
+                return;
+            }
+
+            listContainer.innerHTML = apps.map(app => {
+                // Convert limit_millis to minutes for user-friendly editing
+                const minutes = Math.floor((app.limit_millis || 0) / (1000 * 60));
+                return `
+                    <li class="app-item">
+                        <span class="app-info">${escapeHtml(app.package_name)}</span>
+                        <div class="limit-controls">
+                            <input type="number" id="limit-${escapeAttr(app.package_name)}" value="${minutes}" min="0" placeholder="Min" />
+                            <button class="btn-save" onclick="saveLimit('${escapeQuote(app.package_name)}')">Guardar</button>
+                        </div>
+                    </li>
+                `;
+            }).join('');
+        } catch (err) {
+            listContainer.innerHTML = '<li class="status-msg" style="color: red;">Error de red al conectar con el servidor.</li>';
+        }
+    }
+
+    async function saveLimit(packageName) {
+        const inputId = `limit-${packageName}`;
+        const inputElement = document.getElementById(inputId);
+        if (!inputElement) return;
+
+        const minutes = parseInt(inputElement.value, 10) || 0;
+        // Convert minutes back to milliseconds
+        const limitMillis = minutes * 60 * 1000;
+
+        try {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    packageName: packageName, 
+                    limitMillis: limitMillis 
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert(`¡Límite actualizado para ${packageName}!`);
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo guardar el límite'));
+            }
+        } catch (err) {
+            alert('Error al conectar con el servidor.');
+        }
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function escapeAttr(str) {
+        return str.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function escapeQuote(str) {
+        return str.replace(/'/g, "\\'");
+    }
+</script>
+
+</body>
+</html>
