@@ -11,7 +11,7 @@
             --text-color: #333333;
             --border-color: #e1e4e8;
             --primary-color: #0070f3;
-            --success-color: #28a745;
+            --danger-color: #dc3545;
         }
 
         body {
@@ -26,7 +26,7 @@
 
         .container {
             width: 100%;
-            max-width: 550px;
+            max-width: 600px;
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
@@ -68,7 +68,7 @@
             gap: 8px;
         }
 
-        @media (min-width: 450px) {
+        @media (min-width: 480px) {
             .app-item {
                 flex-direction: row;
                 justify-content: space-between;
@@ -84,12 +84,13 @@
 
         .limit-controls {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         input[type="number"] {
-            width: 80px;
+            width: 75px;
             padding: 8px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
@@ -101,20 +102,33 @@
             border-color: var(--primary-color);
         }
 
-        button.btn-save {
-            background-color: var(--primary-color);
-            color: white;
+        button {
+            padding: 8px 10px;
             border: none;
-            padding: 8px 12px;
             border-radius: 6px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             white-space: nowrap;
         }
 
+        button.btn-save {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
         button.btn-save:active {
             background-color: #0051a2;
+        }
+
+        button.btn-remove {
+            background-color: #e1e4e8;
+            color: #333;
+        }
+
+        button.btn-remove:hover {
+            background-color: var(--danger-color);
+            color: white;
         }
 
         .status-msg {
@@ -129,7 +143,7 @@
 
 <div class="container">
     <h2>Límites de Tiempo</h2>
-    <p class="header-subtitle">Establece el límite diario de uso en minutos para cada aplicación (0 = sin límite).</p>
+    <p class="header-subtitle">Configura los minutos límite por aplicación o quítalos por completo.</p>
 
     <!-- Lista de Aplicaciones -->
     <ul id="app-list">
@@ -158,14 +172,18 @@
             }
 
             listContainer.innerHTML = apps.map(app => {
-                // Convert limit_millis to minutes for user-friendly editing
-                const minutes = Math.floor((app.limit_millis || 0) / (1000 * 60));
+                const hasLimit = app.limit_millis !== null && app.limit_millis !== undefined;
+                // Si no hay límite o es explícitamente null, dejamos el input vacío para mostrar placeholder "Sin límite"
+                const minutes = hasLimit ? Math.floor(app.limit_millis / (1000 * 60)) : '';
+                const displayPlaceholder = hasLimit ? "Min" : "Sin límite";
+
                 return `
                     <li class="app-item">
                         <span class="app-info">${escapeHtml(app.package_name)}</span>
                         <div class="limit-controls">
-                            <input type="number" id="limit-${escapeAttr(app.package_name)}" value="${minutes}" min="0" placeholder="Min" />
+                            <input type="number" id="limit-${escapeAttr(app.package_name)}" value="${minutes}" min="0" placeholder="${displayPlaceholder}" />
                             <button class="btn-save" onclick="saveLimit('${escapeQuote(app.package_name)}')">Guardar</button>
+                            <button class="btn-remove" onclick="removeLimit('${escapeQuote(app.package_name)}')">Quitar</button>
                         </div>
                     </li>
                 `;
@@ -180,8 +198,9 @@
         const inputElement = document.getElementById(inputId);
         if (!inputElement) return;
 
-        const minutes = parseInt(inputElement.value, 10) || 0;
-        // Convert minutes back to milliseconds
+        // Si el campo está vacío, asumimos 0, o el número ingresado exacto (incluso si es 0)
+        const val = inputElement.value.trim();
+        const minutes = val === '' ? 0 : parseInt(val, 10);
         const limitMillis = minutes * 60 * 1000;
 
         try {
@@ -196,9 +215,32 @@
 
             const data = await response.json();
             if (data.success) {
-                alert(`¡Límite actualizado para ${packageName}!`);
+                alert(`¡Límite guardado (${minutes} min) para ${packageName}!`);
+                fetchApps();
             } else {
                 alert('Error: ' + (data.error || 'No se pudo guardar el límite'));
+            }
+        } catch (err) {
+            alert('Error al conectar con el servidor.');
+        }
+    }
+
+    async function removeLimit(packageName) {
+        if (!confirm(`¿Estás seguro de quitar completamente el límite para ${packageName}?`)) return;
+
+        try {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ packageName: packageName })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert(`Límite removido para ${packageName}`);
+                fetchApps();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo quitar el límite'));
             }
         } catch (err) {
             alert('Error al conectar con el servidor.');
