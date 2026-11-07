@@ -11,7 +11,7 @@ async function ensureTableExists() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS app_time_limits (
             package_name VARCHAR(255) PRIMARY KEY,
-            limit_millis BIGINT DEFAULT 0,
+            limit_millis BIGINT DEFAULT NULL,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
         );
     `);
@@ -27,32 +27,32 @@ export default async function handler(req, res) {
             try { body = JSON.parse(body); } catch (e) { body = {}; }
         }
 
-        // Dentro de tu handler GET en Vercel:
-if (req.method === 'GET') {
-    // Esto asegura que devuelva todos los paquetes conocidos y su límite (o null si no tienen)
-    const result = await pool.query(`
-        SELECT package_name, limit_millis 
-        FROM app_time_limits 
-        ORDER BY package_name ASC
-    `);
-    return res.status(200).json({ success: true, apps: result.rows });
-}
+        // GET: Devuelve todas las aplicaciones ordenadas. Si no tienen límite, limit_millis será null.
+        if (req.method === 'GET') {
+            const result = await pool.query(`
+                SELECT package_name, limit_millis 
+                FROM app_time_limits 
+                ORDER BY package_name ASC
+            `);
+            return res.status(200).json({ success: true, apps: result.rows });
+        }
 
+        // POST: Sincronización masiva o actualización de límite individual
         if (req.method === 'POST') {
             const { packages, packageName, limitMillis } = body || {};
 
-            // Scenario A: Bulk sync eficiente usando UNNEST (1 sola consulta SQL)
+            // Scenario A: Bulk sync eficiente usando UNNEST (Guarda NULL para que aparezca como "Sin límite")
             if (Array.isArray(packages) && packages.length > 0) {
                 await pool.query(`
                     INSERT INTO app_time_limits (package_name, limit_millis, updated_at)
-                    SELECT unnest($1::text[]), 0, timezone('utc'::text, now())
+                    SELECT unnest($1::text[]), NULL, timezone('utc'::text, now())
                     ON CONFLICT (package_name) DO NOTHING
                 `, [packages]);
 
                 return res.status(200).json({ success: true, message: `Synced ${packages.length} apps successfully.` });
             }
 
-            // Scenario B: Setting/updating a time limit for a specific package
+            // Scenario B: Setting/updating a time limit for a specific package (Permite guardar 0 u otros valores)
             if (packageName && limitMillis !== undefined) {
                 await pool.query(`
                     INSERT INTO app_time_limits (package_name, limit_millis, updated_at)
@@ -67,6 +67,7 @@ if (req.method === 'GET') {
             return res.status(400).json({ success: false, error: 'Invalid request payload parameters' });
         }
 
+        // DELETE: Eliminar por completo el registro de la app
         if (req.method === 'DELETE') {
             const { packageName } = body || req.query;
             if (!packageName) {
