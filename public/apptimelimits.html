@@ -102,6 +102,15 @@
             border-color: var(--primary-color);
         }
 
+        .badge-unlimited {
+            font-size: 12px;
+            color: #666;
+            background: #e1e4e8;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
         button {
             padding: 8px 10px;
             border: none;
@@ -143,7 +152,7 @@
 
 <div class="container">
     <h2>Límites de Tiempo</h2>
-    <p class="header-subtitle">Configura los minutos límite por aplicación o quítalos por completo.</p>
+    <p class="header-subtitle">Configura los minutos límite por aplicación (0 bloquea por completo).</p>
 
     <!-- Lista de Aplicaciones -->
     <ul id="app-list">
@@ -167,21 +176,36 @@
 
             const apps = data.apps;
             if (apps.length === 0) {
-                listContainer.innerHTML = '<li class="status-msg">No hay aplicaciones sincronizadas todavía. Abre la app en tu teléfono para sincronizar.</li>';
+                listContainer.innerHTML = '<li class="status-msg">No hay aplicaciones sincronizadas todavía.</li>';
                 return;
             }
 
             listContainer.innerHTML = apps.map(app => {
+                // Verificamos si existe un límite real (distinto de null o undefined)
                 const hasLimit = app.limit_millis !== null && app.limit_millis !== undefined;
-                // Si no hay límite o es explícitamente null, dejamos el input vacío para mostrar placeholder "Sin límite"
-                const minutes = hasLimit ? Math.floor(app.limit_millis / (1000 * 60)) : '';
-                const displayPlaceholder = hasLimit ? "Min" : "Sin límite";
+
+                if (!hasLimit) {
+                    // Si no tiene límite registrado en la BD, mostramos texto "Sin límite" y un botón para configurar o quitar
+                    return `
+                        <li class="app-item">
+                            <span class="app-info">${escapeHtml(app.package_name)}</span>
+                            <div class="limit-controls">
+                                <span class="badge-unlimited">Sin límite</span>
+                                <input type="number" id="limit-${escapeAttr(app.package_name)}" value="0" min="0" placeholder="Min" style="width: 50px;" />
+                                <button class="btn-save" onclick="saveLimit('${escapeQuote(app.package_name)}')">Definir</button>
+                            </div>
+                        </li>
+                    `;
+                }
+
+                // Si sí tiene límite (incluso si es 0 exacto), calculamos los minutos
+                const minutes = Math.floor(app.limit_millis / (1000 * 60));
 
                 return `
                     <li class="app-item">
                         <span class="app-info">${escapeHtml(app.package_name)}</span>
                         <div class="limit-controls">
-                            <input type="number" id="limit-${escapeAttr(app.package_name)}" value="${minutes}" min="0" placeholder="${displayPlaceholder}" />
+                            <input type="number" id="limit-${escapeAttr(app.package_name)}" value="${minutes}" min="0" />
                             <button class="btn-save" onclick="saveLimit('${escapeQuote(app.package_name)}')">Guardar</button>
                             <button class="btn-remove" onclick="removeLimit('${escapeQuote(app.package_name)}')">Quitar</button>
                         </div>
@@ -198,10 +222,10 @@
         const inputElement = document.getElementById(inputId);
         if (!inputElement) return;
 
-        // Si el campo está vacío, asumimos 0, o el número ingresado exacto (incluso si es 0)
+        // Tomamos el valor numérico ingresado. Si pone 0, se respeta el 0 exacto.
         const val = inputElement.value.trim();
         const minutes = val === '' ? 0 : parseInt(val, 10);
-        const limitMillis = minutes * 60 * 1000;
+        const limitMillis = minutes * 60 * 1000; // 0 minutos = 0 milisegundos
 
         try {
             const response = await fetch(API_ENDPOINT, {
