@@ -21,7 +21,12 @@ export default async function handler(req, res) {
     try {
         await ensureTableExists();
 
-        // GET: Fetch all installed apps and their current time limits
+        // Asegurar que req.body esté parseado como JSON si viene como texto
+        let body = req.body;
+        if (typeof body === 'string') {
+            try { body = JSON.parse(body); } catch (e) { body = {}; }
+        }
+
         if (req.method === 'GET') {
             const { packageName } = req.query;
             if (packageName) {
@@ -39,19 +44,17 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, apps: result.rows });
         }
 
-        // POST: Sync installed apps from phone OR set a time limit for a specific app
         if (req.method === 'POST') {
-            const { packages, packageName, limitMillis } = req.body;
+            const { packages, packageName, limitMillis } = body || {};
 
-            // Scenario A: Bulk sync of installed apps array from Android
-            if (Array.isArray(packages)) {
-                for (const pkg of packages) {
-                    await pool.query(`
-                        INSERT INTO app_time_limits (package_name, limit_millis, updated_at)
-                        VALUES ($1, 0, timezone('utc'::text, now()))
-                        ON CONFLICT (package_name) DO NOTHING
-                    `, [pkg]);
-                }
+            // Scenario A: Bulk sync eficiente usando UNNEST (1 sola consulta SQL)
+            if (Array.isArray(packages) && packages.length > 0) {
+                await pool.query(`
+                    INSERT INTO app_time_limits (package_name, limit_millis, updated_at)
+                    SELECT unnest($1::text[]), 0, timezone('utc'::text, now())
+                    ON CONFLICT (package_name) DO NOTHING
+                `, [packages]);
+
                 return res.status(200).json({ success: true, message: `Synced ${packages.length} apps successfully.` });
             }
 
@@ -70,9 +73,8 @@ export default async function handler(req, res) {
             return res.status(400).json({ success: false, error: 'Invalid request payload parameters' });
         }
 
-        // DELETE: Remove an app limit or entry
         if (req.method === 'DELETE') {
-            const { packageName } = req.body || req.query;
+            const { packageName } = body || req.query;
             if (!packageName) {
                 return res.status(400).json({ success: false, error: 'Package name is required' });
             }
